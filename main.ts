@@ -1,25 +1,40 @@
-import { copyFileSync, mkdirSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { fileURLToPath } from 'node:url';
-const sourceFile = join(import.meta.dirname ?? fileURLToPath(new URL('.', import.meta.url)), 'entry.png');
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR || '/output';
+import { dirname, join } from 'node:path';
+import { copyFileSync, mkdirSync, existsSync, accessSync, constants } from 'node:fs';
 
-function deploy() {
-    if (!existsSync(sourceFile)) {
-        console.error(`CRITICAL ERROR: ${sourceFile} is missing in the root directory.`);
-        process.exit(1);
-    }
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const src = join(__dirname, 'entry.png');
+// Get output directory from environment variable or default to /output
+const destDir = process.env.MAKEFUN_OUTPUT_DIR || '/output';
+const dest = join(destDir, 'entry.png');
 
-    try {
-        mkdirSync(outputDir, { recursive: true });
-        const destination = join(outputDir, 'entry.png');
-        copyFileSync(sourceFile, destination);
-        console.log(`Successfully deployed ${sourceFile} to ${destination}`);
-    } catch (error) {
-        console.error(`DEPLOYMENT FAILED: ${error instanceof Error ? error.message : String(error)}`);
-        process.exit(1);
-    }
+// Verify source file exists
+if (!existsSync(src)) {
+  console.error(`Error: Source file ${src} not found.`);
+  process.exit(1);
 }
 
-deploy();
+// Create output directory recursively if it doesn't exist
+try {
+  mkdirSync(destDir, { recursive: true });
+} catch (err) {
+  console.error(`Error: Failed to create directory ${destDir}: ${err}`);
+  process.exit(1);
+}
+
+// Verify directory is writable
+try {
+  accessSync(destDir, constants.W_OK);
+} catch (err) {
+  console.error(`Error: Destination directory ${destDir} is not writable.`);
+  process.exit(1);
+}
+
+// Copy the file
+try {
+  copyFileSync(src, dest);
+  console.log(`Successfully copied ${src} to ${dest}`);
+} catch (err) {
+  console.error(`Error: Failed to copy file to ${dest}: ${err}`);
+  process.exit(1);
+}
